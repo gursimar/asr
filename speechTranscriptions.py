@@ -2,6 +2,7 @@ import os, glob
 import speech_recognition as sr
 from config import *
 import pandas as pd
+import base64
 
 def ibmSpeechToText(audio):
     # Settings - https://www.ibm.com/watson/developercloud/doc/speech-to-text/
@@ -110,8 +111,9 @@ if __name__ == '__main__':
     r = sr.Recognizer()
 
     #folder = 'data/videos'
-    folder = 'data/flac'
-    folder = 'data/transcribed'
+    #folder = 'data/flac'
+    #folder = 'data/transcribed'
+    folder = 'data/freespeech/freespeech-test'
     os.chdir(folder)
 
     files = []
@@ -127,7 +129,8 @@ if __name__ == '__main__':
     sphinx = []
     ibm = []
 
-    for AUDIO_FILE in glob.glob("*.flac*"):
+    count = 0
+    for AUDIO_FILE in glob.glob("*.wav*"):
         print(AUDIO_FILE)
         with sr.AudioFile(AUDIO_FILE) as source:
             audio = r.record(source)  # read the entire audio file
@@ -145,31 +148,39 @@ if __name__ == '__main__':
         #print ' Google Speech to Text DONE'
 
         # BING speech API
-        #print ' Bing Speech to Text STARTED'
-        #result_bing = bingSpeechToText(audio)
-        #print ' Bing Speech to Text DONE'
+        print ' Bing Speech to Text STARTED'
+        result_bing = bingSpeechToText(audio)
+        print ' Bing Speech to Text DONE'
 
         #  Sphinx
-        print ' Sphinx Speech to Text STARTED'
-        result_sphinx = sphinxSpeechToText(audio)
-        print ' Sphinx Speech to Text DONE'
+        #print ' Sphinx Speech to Text STARTED'
+        #result_sphinx = sphinxSpeechToText(audio)
+        #print ' Sphinx Speech to Text DONE'
 
         files.append(AUDIO_FILE)
 
         #results_ibm_us.append(result_ibm['US'])
-        #results_bing_us.append(result_bing['US'])
-        results_sphinx_a.append(result_sphinx['A'])
+        results_bing_us.append(result_bing['US'])
+        #results_sphinx_a.append(result_sphinx['A'])
         #results_ibm_uk.append(result_ibm['UK'])
-        #results_bing_in.append(result_bing['IN'])
-        print 'DONE'
+        results_bing_in.append(result_bing['IN'])
+        count = count + 1
+        print 'DONE - ' + str(count)
+        fd = open('results_inter_in.csv', 'a')
+        fd.write(AUDIO_FILE + ',' + str(base64.b64encode(result_bing['IN'])) + '\n')
+        fd.close()
+        fd = open('results_inter_us.csv', 'a')
+        fd.write(AUDIO_FILE + ',' + str(base64.b64encode(result_bing['US'])) + '\n')
+        fd.close()
+
 
     ds = pd.DataFrame(data = {
         'Files': files,
         #'IBM_US': results_ibm_us,
         #'IBM_UK': results_ibm_uk,
-        'SPHINX_A': results_sphinx_a,
-        #'BING_US': results_bing_us,
-        #'BING_IN': results_bing_in,
+        #'SPHINX_A': results_sphinx_a,
+        'BING_US': results_bing_us,
+        'BING_IN': results_bing_in,
     })
     ds.to_csv('results.csv')
     print'-----DONE ALL-----'

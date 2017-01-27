@@ -1,32 +1,15 @@
 from ndev.core import NDEVCredentials, HEADER, red, magenta
 from ndev.asr import *
-import speech_recognition as sr
 import pandas as pd
+import argparse
+import base64
+import json
 import glob
-import os, re, base64
+import os, re
+import speech_recognition as sr
 
-def nuanceTranscription(filename):
-    ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-    creds = NDEVCredentials(ROOT_DIR + '\credentials.json')
-    if not creds.has_credentials():
-        print red("Please provide NDEV credentials.")
-        return
-
-    language = 'en_US'
-    #language = 'en_IN'
-    desired_asr_lang = ASR.get_language_input(language)
-    #print "OK. Using Language: %s (%s)\n" % (desired_asr_lang['display'], desired_asr_lang['properties']['code'])
-
-    try:
-        asr_req = ASR.make_request(creds=creds, desired_asr_lang=desired_asr_lang, filename=ROOT_DIR+ '\\' + filename)
-
-        if asr_req.response.was_successful():
-            return asr_req.response.get_recognition_result()  # instead of looping through, pick head
-        else:
-            return asr_req.response.error_message
-    except Exception as e:
-        return e.message
-
+import sys
+import numpy
 
 ##gives the csv dump (candidate id, audio name, transcription)
 def transcript_dump(full_folder_path):
@@ -50,10 +33,12 @@ def transcript_dump(full_folder_path):
                     string='"*/'+file_id+'lab"'
 
                     # SIMAR CODE
-
+                    with sr.AudioFile(file) as source:
+                        audio = r.record(source)  # read the entire audio file
+                    print(file)
                     try:
                         # result = main(file)
-                        result = nuanceTranscription(file)
+                        result = r.recognize_sphinx(audio, language='en-US')
                     except Exception as exception:
                         result = repr(exception)
                     print result
@@ -62,7 +47,7 @@ def transcript_dump(full_folder_path):
                     results.append(result)
 
                     result = ''.join([i if ord(i) < 128 else ' ' for i in result])
-                    fd = open('results_inter_nuance.csv', 'a')
+                    fd = open('results_inter_sphinx.csv', 'a')
                     fd.write(file + ',' + result + '\n')
                     fd.close()
                     print 'DONE'
@@ -73,37 +58,36 @@ def transcript_dump(full_folder_path):
     all_details = pd.DataFrame({'candidate_id':candidate_id,'file_tag':file_tag,'transcript':transcript})
     all_details.to_csv('transcript_candidates.csv')
 
-
 if __name__ == '__main__':
     r = sr.Recognizer()
-    #folder = 'data/transcribed/splitin60s'
-    folder = 'data/freespeech/freespeech-test'
-    #folder = 'data/rslr-test'
-    #transcript_dump(folder)
-    #exit()
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\Gursimar\\repos\\python-docs-samples\\speech\\api-client\\simar-ae38c669c730.json"
+    #folder = 'data/videos'
+    #folder = 'data/nishant-all/nishant-googleleft'
+    folder = 'data/rslr-test'
+
+    transcript_dump(folder)
+    exit()
+
     os.chdir(folder)
     files = []
     results = []
     for file in glob.glob("*.wav*"):
-    #for file in file_list:
+        with sr.AudioFile(file) as source:
+            audio = r.record(source)  # read the entire audio file
+        print(file)
         try:
             #result = main(file)
-            result = nuanceTranscription(folder+ '//' + file)
-            #result = nuanceTranscription(file)
-            result = ''.join([i if ord(i) < 128 else ' ' for i in result])
-            files.append(file)
-            results.append(result)
+            result = r.recognize_google(audio ,language='en-IN')
         except Exception as exception:
             result = repr(exception)
-            files.append(file)
-            results.append(result)
         print result
-        rsult = str(result)
-        fd = open('results_inter_nuance_in.csv', 'a')
-        fd.write(file + ',' + str(base64.b64encode(result)) + '\n')
+        files.append(file)
+        results.append(result)
+        result = ''.join([i if ord(i) < 128 else ' ' for i in result])
+        fd = open('results_inter.csv', 'a')
+        fd.write(file + ',' + result + '\n')
         fd.close()
-
-    print 'DONE'
+        print 'DONE'
     ds = pd.DataFrame(data = {'Files': files, 'Trans':results})
-    ds.to_csv('results_nuance.csv')
+    ds.to_csv('results.csv')
     print'-----DONE ALL-----'

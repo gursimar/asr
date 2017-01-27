@@ -23,7 +23,7 @@ import argparse
 import base64
 import json
 import glob
-import os
+import os, re
 
 #-*- coding: utf-8 -*-
 #!/usr/bin/env python
@@ -67,11 +67,16 @@ def main(speech_file):
         speech_file: the name of the audio file.
     """
     # [START construct_request]
-    with open(speech_file, 'rb') as speech:
-        # Base64 encode the binary audio file for inclusion in the JSON
-        # request.
-        speech_content = base64.b64encode(speech.read())
+    #with open(speech_file, 'rb') as speech:
+    #    # Base64 encode the binary audio file for inclusion in the JSON
+    #    # request.
+    #    speech_content = base64.b64encode(speech.read())
 
+    flac_data = speech_file.get_flac_data(
+        convert_rate=None if speech_file.sample_rate >= 8000 else 8000,  # audio samples must be at least 8 kHz
+        convert_width=2  # audio samples must be 16-bit
+    )
+    speech_content = base64.b64encode(flac_data)
     service = get_speech_service()
     service_request = service.speech().syncrecognize(
         body={
@@ -80,7 +85,7 @@ def main(speech_file):
                 # https://goo.gl/KPZn97 for the full list.
                 #'encoding': 'LINEAR16',  # raw 16-bit signed LE samples
                 'encoding': 'FLAC',  # raw 16-bit signed LE samples
-                'sampleRate': 16000,  # 16 khz
+                'sampleRate': 8000,  # 16 khz
                 # See http://g.co/cloud/speech/docs/languages for a list of
                 # supported languages.
                 #'languageCode': 'en-US',  # a BCP-47 language tag
@@ -149,11 +154,66 @@ def unserializeTranslations():
     })
     results.to_csv('./results/google_ASR_Results.csv')
 
+
+
+##gives the csv dump (candidate id, audio name, transcription)
+def folder_spider(full_folder_path):
+    candidate_id = []
+    file_tag = []
+    transcript=[]
+    files = []
+    results = []
+    for path,dirs,files in os.walk(full_folder_path):
+        for d in dirs:
+            print(d)
+            dir_name = full_folder_path+"/"+d
+            print(dir_name)
+            for f in os.listdir(dir_name):
+                if (f.endswith(".wav")):
+                    file_id = f[:-3]
+                    file = dir_name + "/" + f
+                    temp_module = file_id.split("_")
+                    module_id = temp_module[1]
+                    pattern = re.compile('.'+file_id+'.')
+                    string='"*/'+file_id+'lab"'
+
+                    # SIMAR CODE
+                    with sr.AudioFile(file) as source:
+                        audio = r.record(source)  # read the entire audio file
+                    print(file)
+                    try:
+                        # result = main(file)
+                        result = r.recognize_google(audio, language='en-IN')
+                    except Exception as exception:
+                        result = repr(exception)
+                    print result
+
+                    files.append(file)
+                    results.append(result)
+
+                    result = ''.join([i if ord(i) < 128 else ' ' for i in result])
+                    fd = open('results_inter.csv', 'a')
+                    fd.write(file + ',' + result + '\n')
+                    fd.close()
+                    print 'DONE'
+
+                    pass
+
+
+    all_details = pd.DataFrame({'candidate_id':candidate_id,'file_tag':file_tag,'transcript':transcript})
+    all_details.to_csv('transcript_candidates.csv')
+
 if __name__ == '__main__':
     r = sr.Recognizer()
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\Gursimar\\repos\\python-docs-samples\\speech\\api-client\\simar-ae38c669c730.json"
+    #os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\Gursimar\\repos\\python-docs-samples\\speech\\api-client\\simar-ae38c669c730.json"
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\Gursimar\\repos\\python-docs-samples\\speech\\api-client\\try-apis-bd5cef16b431.json"
     #folder = 'data/videos'
-    folder = 'data/nishant'
+    folder = 'data/freespeech/freespeech-test'
+    #folder = 'data/rslr-test'
+
+    #folder_spider(folder)
+    #exit()
+
     os.chdir(folder)
     files = []
     results = []
@@ -162,18 +222,18 @@ if __name__ == '__main__':
             audio = r.record(source)  # read the entire audio file
         print(file)
         try:
-            #result = main(file)
-            result = r.recognize_google(audio ,language='en-IN')
+            result = main(audio)
+            #result = r.recognize_google(audio ,language='en-IN')
         except Exception as exception:
             result = repr(exception)
         print result
         files.append(file)
         results.append(result)
-        result = ''.join([i if ord(i) < 128 else ' ' for i in result])
-        fd = open('results_inter.csv', 'a')
-        fd.write(file + ',' + result + '\n')
+        #result = ''.join([i if ord(i) < 128 else ' ' for i in result])
+        fd = open('results_inter_google_in.csv', 'a')
+        fd.write(file + ',' + str(base64.b64encode(result)) + '\n')
         fd.close()
         print 'DONE'
     ds = pd.DataFrame(data = {'Files': files, 'Trans':results})
-    ds.to_csv('results.csv')
+    ds.to_csv('results_google.csv')
     print'-----DONE ALL-----'

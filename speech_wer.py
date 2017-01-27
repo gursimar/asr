@@ -27,25 +27,44 @@ class speechAnalyze():
                 del r_mod[ind]
                 words_hey.append(word)
 
-        #print corr
-        #print len(h)
-        #print len(r)
-        result = {
-            # normal idea
-            'precision_all': float(len(words)) / len(h),  # how many selected items are relevant
-            'recall_all': float(len(words)) / len(r),  # how many relevant items are selected
-            'comm_words': words,
+        # print corr
+        # print len(h)
+        # print len(r)
 
-            # Take unique words in hypothesis and actual
-            'precision_unique': float(len(set(words))) / len(set(h)),
-            'recall_unique': float(len(set(words))) / len(set(r)),
-            'comm_words_unique': set(words),
+        if len(h) ==0:
+            result = {
+                # normal idea
+                'precision_all': float(0),  # how many selected items are relevant
+                'recall_all': float(0),  # how many relevant items are selected
+                'comm_words': '',
 
-            # Remove a word once its used
-            'precision_remove': float(len(words_hey))/len(h), # how many selected items are relevant
-            'recall_remove': float(len(words_hey))/len(r), # how many relevant items are selected
-            'comm_words_remove': words_hey
-        }
+                # Take unique words in hypothesis and actual
+                'precision_unique': float(0),
+                'recall_unique': float(0),
+                'comm_words_unique': '',
+
+                # Remove a word once its used
+                'precision_remove': float(0),  # how many selected items are relevant
+                'recall_remove': float(0),  # how many relevant items are selected
+                'comm_words_remove': ''
+            }
+        else:
+            result = {
+                # normal idea
+                'precision_all': float(len(words)) / len(h),  # how many selected items are relevant
+                'recall_all': float(len(words)) / len(r),  # how many relevant items are selected
+                'comm_words': words,
+
+                # Take unique words in hypothesis and actual
+                'precision_unique': float(len(set(words))) / len(set(h)),
+                'recall_unique': float(len(set(words))) / len(set(r)),
+                'comm_words_unique': set(words),
+
+                # Remove a word once its used
+                'precision_remove': float(len(words_hey))/len(h), # how many selected items are relevant
+                'recall_remove': float(len(words_hey))/len(r), # how many relevant items are selected
+                'comm_words_remove': words_hey
+            }
         return result
 
     def bagOfTwWords(self, r, h):
@@ -262,10 +281,6 @@ class speechAnalyze():
 
 if __name__ == '__main__':
     sa = speechAnalyze()
-
-    folder = 'results/'
-    os.chdir(folder)
-
     wer = []
     precision_all = []
     recall_all = []
@@ -292,20 +307,41 @@ if __name__ == '__main__':
     actuals = []
     wer_result = []
     types = []
+
+    folder = 'results/rslr-225'
+    #folder = 'results/freespeech/500'
+    os.chdir(folder)
     for file in glob.glob("input_*"):
         print file
-        data = pd.DataFrame.from_csv(file)
+        data = pd.DataFrame.from_csv(file, index_col='User ID')
         for index, row in data.iterrows():
             name = row['Name']
-            names.append(name)
             #print name
-            transcript = row['transcript']
-            actual = row['Actual']
+            transcript = str(row['transcript'])
+            actual = str(row['Actual'])
 
             # some preprocessing
             transcript = transcript.lower()
             actual = actual.lower()
             actual = "".join(c for c in actual if c not in ('!', '.', ':', ',', ';', '<', '>', '(', ')', '"', '[', ']'))
+
+            # calculate bag of words error after removing stop words
+            stop_words = set(stopwords.words('english'))
+            actual_words = actual.split()
+            transcript_words = transcript.split()
+            resultwords = [word for word in actual_words if word.lower() not in stop_words]
+            actual_wo_stop = ' '.join(resultwords)
+            resultwords = [word for word in transcript_words if word.lower() not in stop_words]
+            transcript_wo_stop = ' '.join(resultwords)
+            if (len(transcript_wo_stop) ==0 or len(transcript) == 0):
+                print 'Some panga'
+                # IN THIS IMP EDGE CASE
+                # WE ASSIGN ALL METICS TO BE 0
+                # WER TO BE 100
+                # THESE ARE SIMPLY BAD CASES
+                #continue
+
+            names.append(name)
             transcripts.append(transcript)
             actuals.append(actual)
 
@@ -321,14 +357,7 @@ if __name__ == '__main__':
             recall_remove.append(ind['recall_remove'])
             common_words_remove.append(ind['comm_words_remove']),
 
-            # calculate bag of words error after removing stop words
-            stop_words = set(stopwords.words('english'))
-            actual_words = actual.split()
-            transcript_words = transcript.split()
-            resultwords = [word for word in actual_words if word.lower() not in stop_words]
-            actual_wo_stop = ' '.join(resultwords)
-            resultwords = [word for word in transcript_words if word.lower() not in stop_words]
-            transcript_wo_stop = ' '.join(resultwords)
+
             ind_wo_stop = sa.bagOfWords(actual_wo_stop, transcript_wo_stop)
 
             precision_all_wo_stop.append(ind_wo_stop['precision_all'])
@@ -347,7 +376,7 @@ if __name__ == '__main__':
                 wer.append(float(wer_result_a['wer'].replace("%","")))
                 wer_result.append(wer_result_a['diff'])
             except:
-                wer.append(-1)
+                wer.append(100) #Assumed that bad wer is 100
                 wer_result.append("")
 
             temp = string.replace(file, 'input', '')
@@ -386,7 +415,26 @@ if __name__ == '__main__':
 
         }, columns = ['name','type','transcriptsIN','Actual','wer','precision_all','recall_all','common_words_all','precision_uniq','recall_uniq', 'common_words_uniq', 'precision_remove', 'recall_remove','common_words_remove','precision_all_wo_stop','recall_all_wo_stop','common_words_all_wo_stop','precision_uniq_wo_stop','recall_uniq_wo_stop','common_words_uniq_wo_stop','precision_remove_wo_stop','recall_remove_wo_stop','common_words_remove_wo_stop'])
 
+    #
+    print len(results)
+    results = results[results['wer'] >=0 ]
+    print len(results)
+
+    # Dump average stats
     avgs = results.groupby(['type']).mean()
+    counts = results.groupby(['type']).count()
+    counts = counts[['name']]
+    counts.rename(columns={'name': 'Counts'}, inplace=True)
+    avgs = pd.concat([avgs, counts], axis=1, join='inner')
+    medians = results.groupby(['type']).median()
+    medians = pd.concat([medians, counts], axis=1, join='inner')
+    maxs = results.groupby(['type']).max()
+    maxs = pd.concat([maxs, counts], axis=1, join='inner')
+    mins = results.groupby(['type']).min()
+    mins = pd.concat([mins, counts], axis=1, join='inner')
 
     results.to_csv('speechStatsNew.csv')
     avgs.to_csv('speechStatsNewAvg.csv')
+    medians.to_csv('speechStatsNewMedian.csv')
+    maxs.to_csv('speechStatsNewMax.csv')
+    mins.to_csv('speechStatsNewMin.csv')
