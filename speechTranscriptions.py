@@ -113,7 +113,8 @@ if __name__ == '__main__':
     #folder = 'data/videos'
     #folder = 'data/flac'
     #folder = 'data/transcribed'
-    folder = 'data/freespeech/freespeech-test'
+    #folder = 'data/freespeech/freespeech-test'
+    folder = 'data/inder'
     os.chdir(folder)
 
     files = []

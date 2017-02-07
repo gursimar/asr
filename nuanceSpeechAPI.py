@@ -1,40 +1,53 @@
-from ndev.core import NDEVCredentials, HEADER, red, magenta
-from ndev.asr import *
-import speech_recognition as sr
+import re
+import os
 import pandas as pd
-import glob
-import os, re, base64
 
-def nuanceTranscription(filename):
-    ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-    creds = NDEVCredentials(ROOT_DIR + '\credentials.json')
-    if not creds.has_credentials():
-        print red("Please provide NDEV credentials.")
-        return
+allTranscripts = open('data/words_94.mlf')
+all_transcripts_94 = allTranscripts.read()
+all_transcripts_94 = all_transcripts_94.split('\n')
 
-    language = 'en_US'
-    #language = 'en_IN'
-    desired_asr_lang = ASR.get_language_input(language)
-    #print "OK. Using Language: %s (%s)\n" % (desired_asr_lang['display'], desired_asr_lang['properties']['code'])
+allTranscripts_ = open('data/words_97.mlf')
+all_transcripts_97 = allTranscripts_.read()
+all_transcripts_97 = all_transcripts_97.split('\n')
 
-    try:
-        asr_req = ASR.make_request(creds=creds, desired_asr_lang=desired_asr_lang, filename=ROOT_DIR+ '\\' + filename)
+allTranscripts_ = open('data/words_226.mlf')
+all_transcripts_226 = allTranscripts_.read()
+all_transcripts_226 = all_transcripts_226.split('\n')
 
-        if asr_req.response.was_successful():
-            return asr_req.response.get_recognition_result()  # instead of looping through, pick head
+
+##get transcription for every audio file.
+def per_audio_transcript(fileid,module_id):
+    trans =[]
+    flag = 0
+    
+    all_transcripts=[]
+    if (int(module_id) == 94):  ##checks the module. Should be either 94/97. If not, return empty trans.
+        all_transcripts = all_transcripts_94
+    elif (int(module_id) == 97):
+            all_transcripts = all_transcripts_97
+    else:
+        if (int(module_id) == 226):
+            all_transcripts = all_transcripts_226
+
+    for t in all_transcripts:
+        if (flag==0):
+            m = re.search(fileid,t)
+            if (m is not None):
+                flag = 1
         else:
-            return asr_req.response.error_message
-    except Exception as e:
-        return e.message
-
+            if (t!='.'):
+                trans.append(t)
+            else:
+                flag = 0
+    trans = trans[1:-1]
+    trans = " ".join(trans)
+    return trans
 
 ##gives the csv dump (candidate id, audio name, transcription)
 def transcript_dump(full_folder_path):
     candidate_id = []
     file_tag = []
     transcript=[]
-    files = []
-    results = []
     for path,dirs,files in os.walk(full_folder_path):
         for d in dirs:
             print(d)
@@ -43,67 +56,20 @@ def transcript_dump(full_folder_path):
             for f in os.listdir(dir_name):
                 if (f.endswith(".wav")):
                     file_id = f[:-3]
-                    file = dir_name + "/" + f
                     temp_module = file_id.split("_")
                     module_id = temp_module[1]
                     pattern = re.compile('.'+file_id+'.')
                     string='"*/'+file_id+'lab"'
-
-                    # SIMAR CODE
-
-                    try:
-                        # result = main(file)
-                        result = nuanceTranscription(file)
-                    except Exception as exception:
-                        result = repr(exception)
-                    print result
-
-                    files.append(file)
-                    results.append(result)
-
-                    result = ''.join([i if ord(i) < 128 else ' ' for i in result])
-                    fd = open('results_inter_nuance.csv', 'a')
-                    fd.write(file + ',' + result + '\n')
-                    fd.close()
-                    print 'DONE'
-
-                    pass
-
-
+                    trans = per_audio_transcript(string,module_id)
+                    if (trans!=''):
+                        candidate_id.append(d)
+                        file_tag.append(f)
+                        transcript.append(trans)
+                    else:
+                        print("candidate_id: " + d + ", audio file: " + f + ": Not found : Free speech")
     all_details = pd.DataFrame({'candidate_id':candidate_id,'file_tag':file_tag,'transcript':transcript})
-    all_details.to_csv('transcript_candidates.csv')
-
-
-if __name__ == '__main__':
-    r = sr.Recognizer()
-    #folder = 'data/transcribed/splitin60s'
-    folder = 'data/freespeech/freespeech-test'
-    #folder = 'data/rslr-test'
-    #transcript_dump(folder)
-    #exit()
-    os.chdir(folder)
-    files = []
-    results = []
-    for file in glob.glob("*.wav*"):
-    #for file in file_list:
-        try:
-            #result = main(file)
-            result = nuanceTranscription(folder+ '//' + file)
-            #result = nuanceTranscription(file)
-            result = ''.join([i if ord(i) < 128 else ' ' for i in result])
-            files.append(file)
-            results.append(result)
-        except Exception as exception:
-            result = repr(exception)
-            files.append(file)
-            results.append(result)
-        print result
-        rsult = str(result)
-        fd = open('results_inter_nuance_in.csv', 'a')
-        fd.write(file + ',' + str(base64.b64encode(result)) + '\n')
-        fd.close()
-
-    print 'DONE'
-    ds = pd.DataFrame(data = {'Files': files, 'Trans':results})
-    ds.to_csv('results_nuance.csv')
-    print'-----DONE ALL-----'
+    all_details.to_csv('sample.csv')
+    
+##change this.
+###give full path to the folder which has all candidates.
+transcript_dump('data/rslr-test')

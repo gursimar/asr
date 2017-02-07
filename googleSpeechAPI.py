@@ -108,7 +108,7 @@ def main(speech_file):
 # sox file.abc --channels=1 --bits=16 --rate=16000 --endian=little audio.flac
 
 def unserializeTranslations():
-    data = pd.DataFrame.from_csv('./data/flac/results.csv')
+    data = pd.DataFrame.from_csv('./data/freespeech/freespeech-test/results_google.csv')
 
     files =[]
     confidencesUS = []
@@ -204,6 +204,8 @@ def folder_spider(full_folder_path):
     all_details.to_csv('transcript_candidates.csv')
 
 if __name__ == '__main__':
+    unserializeTranslations()
+    exit()
     r = sr.Recognizer()
     #os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\Gursimar\\repos\\python-docs-samples\\speech\\api-client\\simar-ae38c669c730.json"
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "C:\\Users\\Gursimar\\repos\\python-docs-samples\\speech\\api-client\\try-apis-bd5cef16b431.json"

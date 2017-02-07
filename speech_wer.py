@@ -301,6 +301,7 @@ if __name__ == '__main__':
     precision_uniq_wo_stop = []
     recall_uniq_wo_stop = []
     common_words_uniq_wo_stop = []
+    transcripts_len = []
 
     names = []
     transcripts = []
@@ -308,8 +309,11 @@ if __name__ == '__main__':
     wer_result = []
     types = []
 
-    folder = 'results/rslr-225'
+    #folder = 'results/rslr-new'
+    #folder = 'results/rslr-225'
     #folder = 'results/freespeech/500'
+    folder = 'results/freespeech/train'
+
     os.chdir(folder)
     for file in glob.glob("input_*"):
         print file
@@ -343,6 +347,7 @@ if __name__ == '__main__':
 
             names.append(name)
             transcripts.append(transcript)
+            transcripts_len.append(len(transcript))
             actuals.append(actual)
 
             # calculate bag of words error
@@ -388,7 +393,7 @@ if __name__ == '__main__':
         results = pd.DataFrame({
             'name': names,
             'type': types,
-            'transcriptsIN': transcripts,
+            'transcripts': transcripts,
             'Actual': actuals,
             'wer_dump': wer_result,
             'wer': wer,
@@ -412,8 +417,9 @@ if __name__ == '__main__':
             'precision_remove_wo_stop': precision_remove_wo_stop,
             'recall_remove_wo_stop': recall_remove_wo_stop,
             'common_words_remove_wo_stop': common_words_remove_wo_stop,
+            'transcripts_len': transcripts_len
 
-        }, columns = ['name','type','transcriptsIN','Actual','wer','precision_all','recall_all','common_words_all','precision_uniq','recall_uniq', 'common_words_uniq', 'precision_remove', 'recall_remove','common_words_remove','precision_all_wo_stop','recall_all_wo_stop','common_words_all_wo_stop','precision_uniq_wo_stop','recall_uniq_wo_stop','common_words_uniq_wo_stop','precision_remove_wo_stop','recall_remove_wo_stop','common_words_remove_wo_stop'])
+        }, columns = ['name','type','actual','transcripts', 'transcripts_len', 'wer','precision_all','recall_all','common_words_all','precision_uniq','recall_uniq', 'common_words_uniq', 'precision_remove', 'recall_remove','common_words_remove','precision_all_wo_stop','recall_all_wo_stop','common_words_all_wo_stop','precision_uniq_wo_stop','recall_uniq_wo_stop','common_words_uniq_wo_stop','precision_remove_wo_stop','recall_remove_wo_stop','common_words_remove_wo_stop'])
 
     #
     print len(results)
